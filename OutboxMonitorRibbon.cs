@@ -10,16 +10,13 @@ namespace Outbox_Monitor
 {
     public partial class OutboxMonitorRibbon
     {
-        //ThisAddIn addIn = null;
         private void OutboxMonitorRibbon_Load(object sender, RibbonUIEventArgs e)
         {
-            //addIn = new ThisAddIn();
         }
 
         private void btnProcessOutboxItems_Click(object sender, RibbonControlEventArgs e)
         {
-            Globals.ThisAddIn.ListSentItems();
-            //Globals.ThisAddIn.CheckAndMoveSentItems();
+            Globals.ThisAddIn.CheckAndMoveSentItems();
         }
     }
 }

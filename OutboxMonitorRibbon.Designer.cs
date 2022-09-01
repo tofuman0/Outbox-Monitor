@@ -37,24 +37,25 @@ namespace Outbox_Monitor
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(OutboxMonitorRibbon));
             this.tab1 = this.Factory.CreateRibbonTab();
-            this.Execute = this.Factory.CreateRibbonGroup();
+            this.OutboxMonitor = this.Factory.CreateRibbonGroup();
             this.btnProcessOutboxItems = this.Factory.CreateRibbonButton();
             this.tab1.SuspendLayout();
-            this.Execute.SuspendLayout();
+            this.OutboxMonitor.SuspendLayout();
             this.SuspendLayout();
             // 
             // tab1
             // 
             this.tab1.ControlId.ControlIdType = Microsoft.Office.Tools.Ribbon.RibbonControlIdType.Office;
-            this.tab1.Groups.Add(this.Execute);
-            this.tab1.Label = "Outbox Monitor";
+            this.tab1.ControlId.OfficeId = "TabMail";
+            this.tab1.Groups.Add(this.OutboxMonitor);
+            this.tab1.Label = "TabMail";
             this.tab1.Name = "tab1";
             // 
-            // Execute
+            // OutboxMonitor
             // 
-            this.Execute.Items.Add(this.btnProcessOutboxItems);
-            this.Execute.Label = "Execute";
-            this.Execute.Name = "Execute";
+            this.OutboxMonitor.Items.Add(this.btnProcessOutboxItems);
+            this.OutboxMonitor.Label = "Outbox Monitor";
+            this.OutboxMonitor.Name = "OutboxMonitor";
             // 
             // btnProcessOutboxItems
             // 
@@ -73,8 +74,8 @@ namespace Outbox_Monitor
             this.Load += new Microsoft.Office.Tools.Ribbon.RibbonUIEventHandler(this.OutboxMonitorRibbon_Load);
             this.tab1.ResumeLayout(false);
             this.tab1.PerformLayout();
-            this.Execute.ResumeLayout(false);
-            this.Execute.PerformLayout();
+            this.OutboxMonitor.ResumeLayout(false);
+            this.OutboxMonitor.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -82,7 +83,7 @@ namespace Outbox_Monitor
         #endregion
 
         internal Microsoft.Office.Tools.Ribbon.RibbonTab tab1;
-        internal Microsoft.Office.Tools.Ribbon.RibbonGroup Execute;
+        internal Microsoft.Office.Tools.Ribbon.RibbonGroup OutboxMonitor;
         internal Microsoft.Office.Tools.Ribbon.RibbonButton btnProcessOutboxItems;
     }
 

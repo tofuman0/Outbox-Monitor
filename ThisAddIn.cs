@@ -8,6 +8,8 @@ using Outlook = Microsoft.Office.Interop.Outlook;
 using Office = Microsoft.Office.Core;
 using System.Windows.Forms;
 using System.Threading;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Outbox_Monitor
 {
@@ -15,21 +17,34 @@ namespace Outbox_Monitor
     {
         private enum LOGTYPE
         {
-            LT_INFORMATION,
-            LT_WARNING,
             LT_ERROR,
+            LT_WARNING,
+            LT_INFORMATION,
             LT_NONE
         };
-        private bool running = false;
+        private class Config
+        {
+            public bool? BackgroundMonitor { get; set; }
+            public Int32? BackgroundInterval { get; set; }
+            public LOGTYPE? LogLevel { get; set; }
+            public bool? LogOnly { get; set; }
+        }
+
+        private Int32 lastHash = 0;
+
+        Config config = new Config();
         private void ThisAddIn_Startup(object sender, System.EventArgs e)
         {
             try
             {
+                LoadConfig();
                 WriteLog(LOGTYPE.LT_INFORMATION, "Outbox monitor started.");
-                running = true;
-                Thread backgroundThread = new Thread(new ThreadStart(CheckAndMoveSentItemsThread));
-                backgroundThread.Start();
-                WriteLog(LOGTYPE.LT_INFORMATION, "Outbox monitor background thread started.");
+                if (config.BackgroundMonitor == true)
+                {
+                    Thread backgroundThread = new Thread(new ThreadStart(CheckAndMoveSentItemsThread));
+                    backgroundThread.Start();
+                    WriteLog(LOGTYPE.LT_INFORMATION, "Outbox monitor background thread started.");
+                }
             }
             catch (Exception ex)
             {
@@ -69,22 +84,32 @@ namespace Outbox_Monitor
             }
         }
 
-        public void ListSentItems()
+        public void LogSentItems()
         {
             List<Outlook.MailItem> SentItems = GetSentItems();
-            if (SentItems != null && SentItems.Count > 0)
+            // Prevent multiple logs while just logging the items in the outbox
+            if (lastHash != GetHash(SentItems))
             {
-                String StrSentItems = "There " + ((SentItems.Count > 1) ? "are" : "is") + " " + SentItems.Count + " item" + ((SentItems.Count > 1) ? "s" : "") + " are in the outbox that have been sent:\r\n";
-                foreach (Outlook.MailItem SentItem in SentItems)
+                if (SentItems != null && SentItems.Count > 0)
                 {
-                    StrSentItems += SentItem.Subject + " - " + SentItem.SentOn.ToString() + "\r\n";
+                    String StrSentItems = "There " + ((SentItems.Count > 1) ? "are" : "is") + " " + SentItems.Count + " item" + ((SentItems.Count > 1) ? "s" : "") + " are in the outbox that have been sent:\r\n";
+                    foreach (Outlook.MailItem SentItem in SentItems)
+                    {
+                        StrSentItems += SentItem.Subject + " - " + SentItem.SentOn.ToString() + "\r\n";
+                    }
+                    WriteLog(LOGTYPE.LT_INFORMATION, StrSentItems);
                 }
-                WriteLog(LOGTYPE.LT_INFORMATION, StrSentItems);
+                lastHash = GetHash(SentItems);
             }
         }
 
         public void CheckAndMoveSentItems()
         {
+            if(config.LogOnly.HasValue && config.LogOnly == true)
+            {
+                LogSentItems();
+                return;
+            }
             List<Outlook.MailItem> SentItems = GetSentItems();
             if (SentItems != null && SentItems.Count > 0)
             {
@@ -100,11 +125,33 @@ namespace Outbox_Monitor
 
         private void CheckAndMoveSentItemsThread()
         {
-            while(running == true)
+            while(config.BackgroundMonitor == true)
             {
                 CheckAndMoveSentItems();
-                Thread.Sleep(60 * 1000);
+                Int32 Interval = 60;
+                if(config.BackgroundInterval.HasValue == true)
+                {
+                    Interval = config.BackgroundInterval.Value;
+                }
+                Thread.Sleep(Interval * 1000);
             }
+        }
+
+        private Int32 GetHash(List<Outlook.MailItem> MailItems)
+        {
+            Int32 hash = 0;
+
+            foreach(Outlook.MailItem MailItem in MailItems)
+            {
+                string EntryID = MailItem.EntryID;
+                for(Int32 i = 0; i < (EntryID.Length / 2) / 4; i++)
+                {
+                    hash ^= Convert.ToInt32(EntryID.Substring((i * 2) * 4, 4), 16);
+                    hash = (hash << 1) | ((hash >> 31) & 1);
+                }
+            }
+
+            return hash;
         }
 
         private void WriteLog(LOGTYPE LogType, string LogString)
@@ -113,8 +160,14 @@ namespace Outbox_Monitor
             {
                 CheckLogPaths();
                 StringBuilder sb = new StringBuilder();
-                sb.Append(DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToShortTimeString() + ": " + LogString);
+                sb.Append(DateTime.Now.ToShortDateString() + " " + DateTime.Now.ToLongTimeString() + ": " + LogString);
                 string LogPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Outbox Monitor\\Logs";
+                
+                if(config.LogLevel.HasValue == true && LogType > config.LogLevel)
+                {
+                    return;
+                }
+                
                 if (LogType == LOGTYPE.LT_ERROR)
                 {
                     LogPath += "\\Error.log";
@@ -158,6 +211,96 @@ namespace Outbox_Monitor
             catch (Exception ex)
             {
                 MessageBox.Show(null, ex.Message, "Error Creating Log Folder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void LoadConfig()
+        {
+            try
+            {
+                CheckConfig();
+                string LocalAppdataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                Config? loadedConfig = JsonSerializer.Deserialize<Config>(File.ReadAllText(LocalAppdataPath + "\\Outbox Monitor\\Config.json"));
+                if (loadedConfig != null)
+                {
+                    config = loadedConfig;
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog(LOGTYPE.LT_ERROR, "Error loading configuration: " + ex.Message);
+            }
+        }
+
+        private void CheckConfig()
+        {
+            string LocalAppdataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (Directory.Exists(LocalAppdataPath + "\\Outbox Monitor") == false)
+            {
+                Directory.CreateDirectory(LocalAppdataPath + "\\Outbox Monitor");
+            }
+            if (File.Exists(LocalAppdataPath + "\\Outbox Monitor\\Config.json") == false)
+            {
+                Config newConfig = new Config
+                {
+                    BackgroundMonitor = true,
+                    BackgroundInterval = 60,
+                    LogLevel = LOGTYPE.LT_INFORMATION,
+                    LogOnly = false
+                };
+                string jsonString = JsonSerializer.Serialize(newConfig, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(LocalAppdataPath + "\\Outbox Monitor\\Config.json", jsonString);
+            }
+            else
+            {
+                Config? loadedConfig = JsonSerializer.Deserialize<Config>(File.ReadAllText(LocalAppdataPath + "\\Outbox Monitor\\Config.json"));
+                if (loadedConfig != null)
+                {
+                    bool changed = false;
+                    if (loadedConfig.BackgroundMonitor.HasValue == false)
+                    {
+                        loadedConfig.BackgroundMonitor = true;
+                        changed = true;
+                    }
+                    if ((loadedConfig.BackgroundInterval.HasValue == false) || loadedConfig.BackgroundInterval < 1)
+                    {
+                        loadedConfig.BackgroundInterval = 60;
+                        changed = true;
+                    }
+                    if((loadedConfig.LogLevel.HasValue == false) || loadedConfig.LogLevel > LOGTYPE.LT_NONE || loadedConfig.LogLevel < 0)
+                    {
+                        loadedConfig.LogLevel = LOGTYPE.LT_INFORMATION;
+                        changed = true;
+                    }
+                    if (loadedConfig.LogOnly.HasValue == false)
+                    {
+                        loadedConfig.LogOnly = false;
+                        changed = true;
+                    }
+                    if (changed == true)
+                    {
+                        SaveConfig(loadedConfig);
+                        WriteLog(LOGTYPE.LT_INFORMATION, "Saved configuration: " + JsonSerializer.Serialize(loadedConfig, new JsonSerializerOptions { WriteIndented = true }));
+                    }
+                }
+            }
+        }
+
+        private void SaveConfig(Config SaveConfig = null)
+        {
+            try
+            {
+                if (SaveConfig != null)
+                {
+                    config = SaveConfig;
+                }
+                string LocalAppdataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                string jsonString = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(LocalAppdataPath + "\\Outbox Monitor\\Config.json", jsonString);
+            }
+            catch (Exception ex)
+            {
+                WriteLog(LOGTYPE.LT_ERROR, "Error saving configuration: " + ex.Message);
             }
         }
 
