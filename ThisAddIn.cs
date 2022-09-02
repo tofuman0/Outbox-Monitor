@@ -29,10 +29,14 @@ namespace Outbox_Monitor
             public LOGTYPE? LogLevel { get; set; }
             public bool? LogOnly { get; set; }
         }
-
         private Int32 lastHash = 0;
-
-        Config config = new Config();
+        Config config = new Config
+        {
+            BackgroundMonitor = true,
+            BackgroundInterval = 60,
+            LogLevel = LOGTYPE.LT_INFORMATION,
+            LogOnly = false
+        };
         private void ThisAddIn_Startup(object sender, System.EventArgs e)
         {
             try
@@ -58,20 +62,21 @@ namespace Outbox_Monitor
             //    must run when Outlook shuts down, see https://go.microsoft.com/fwlink/?LinkId=506785
         }
 
-        private List<Outlook.MailItem> GetSentItems()
+        private List<object> GetSentItems()
         {
             try
             {
-                List<Outlook.MailItem> SentItems = new List<Outlook.MailItem>();
+                List<object> SentItems = new List<object>();
                 Outlook.Folder outbox = (Outlook.Folder)this.Application.ActiveExplorer().Session.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderOutbox);
                 Outlook.Items items = outbox.Items;
+
                 if (items.Count > 0)
                 {
                     string searchString = "[SentOn] < '" + DateTime.Now.AddSeconds(-60).ToShortDateString() + " " + DateTime.Now.AddSeconds(-60).ToShortTimeString() + "'";
                     object SentItem = items.Find(searchString);
                     while (SentItem != null)
                     {
-                        SentItems.Add(SentItem as Outlook.MailItem);
+                        SentItems.Add(SentItem);
                         SentItem = items.FindNext();
                     }
                 }
@@ -84,42 +89,119 @@ namespace Outbox_Monitor
             }
         }
 
+        public void GetOutboxItemTypes()
+        {
+            try
+            {
+                List<object> SentItems = new List<object>();
+                Outlook.Folder outbox = (Outlook.Folder)this.Application.ActiveExplorer().Session.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderOutbox);
+                Outlook.Items items = outbox.Items;
+
+                foreach (object item in items)
+                {
+                    if(item is Outlook.MailItem)
+                        WriteLog(LOGTYPE.LT_INFORMATION, "Item Type: MailItem");
+                    else if (item is Outlook.AppointmentItem)
+                        WriteLog(LOGTYPE.LT_INFORMATION, "Item Type: AppointmentItem");
+                    else if (item is Outlook.MeetingItem)
+                        WriteLog(LOGTYPE.LT_INFORMATION, "Item Type: MeetingItem");
+                    else
+                        WriteLog(LOGTYPE.LT_INFORMATION, "Item Type: Unknown");
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog(LOGTYPE.LT_ERROR, ex.Message);
+            }
+        }
+
         public void LogSentItems()
         {
-            List<Outlook.MailItem> SentItems = GetSentItems();
-            // Prevent multiple logs while just logging the items in the outbox
-            if (lastHash != GetHash(SentItems))
+            try
             {
-                if (SentItems != null && SentItems.Count > 0)
+                List<object> SentItems = GetSentItems();
+                // Prevent multiple logs while just logging the items in the outbox
+                if (lastHash != GetHash(SentItems))
                 {
-                    String StrSentItems = "There " + ((SentItems.Count > 1) ? "are" : "is") + " " + SentItems.Count + " item" + ((SentItems.Count > 1) ? "s" : "") + " are in the outbox that have been sent:\r\n";
-                    foreach (Outlook.MailItem SentItem in SentItems)
+                    if (SentItems != null && SentItems.Count > 0)
                     {
-                        StrSentItems += SentItem.Subject + " - " + SentItem.SentOn.ToString() + "\r\n";
+                        String StrSentItems = "There " + ((SentItems.Count > 1) ? "are" : "is") + " " + SentItems.Count + " item" + ((SentItems.Count > 1) ? "s" : "") + " are in the outbox that have been sent:\r\n";
+                        for (Int32 i = 0; i < SentItems.Count; i++)
+                        {
+                            if (SentItems[i] == null)
+                            {
+                                WriteLog(LOGTYPE.LT_ERROR, "Outbox item at index " + i + " is null.");
+                            }
+                            else
+                            {
+                                if (SentItems[i] is Outlook.MailItem)
+                                {
+                                    Outlook.MailItem SentItem = (Outlook.MailItem)SentItems[i];
+                                    StrSentItems += SentItem.Subject + " - " + SentItem.SentOn.ToString() + "\r\n";
+                                }
+                                else if (SentItems[i] is Outlook.MeetingItem)
+                                {
+                                    Outlook.MeetingItem SentItem = (Outlook.MeetingItem)SentItems[i];
+                                    StrSentItems += SentItem.Subject + " - " + SentItem.SentOn.ToString() + "\r\n";
+                                }
+                                else
+                                    continue;
+                            }
+                        }
+                        WriteLog(LOGTYPE.LT_INFORMATION, StrSentItems);
                     }
-                    WriteLog(LOGTYPE.LT_INFORMATION, StrSentItems);
+                    lastHash = GetHash(SentItems);
                 }
-                lastHash = GetHash(SentItems);
+            }
+            catch (Exception ex)
+            {
+                WriteLog(LOGTYPE.LT_ERROR, ex.Message);
             }
         }
 
         public void CheckAndMoveSentItems()
         {
-            if(config.LogOnly.HasValue && config.LogOnly == true)
+            try
             {
-                LogSentItems();
-                return;
-            }
-            List<Outlook.MailItem> SentItems = GetSentItems();
-            if (SentItems != null && SentItems.Count > 0)
-            {
-                String StrSentItems = "Moved " + SentItems.Count + " item" + ((SentItems.Count > 1) ? "s" : "") + " to sent items:\r\n";
-                foreach (Outlook.MailItem SentItem in SentItems)
+                if (config.LogOnly.HasValue && config.LogOnly == true)
                 {
-                    SentItem.Move((Outlook.Folder)this.Application.ActiveExplorer().Session.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderSentMail));
-                    StrSentItems += SentItem.Subject + " - " + SentItem.SentOn.ToString() + "\r\n";
+                    LogSentItems();
+                    return;
                 }
-                WriteLog(LOGTYPE.LT_INFORMATION, StrSentItems);
+                List<object> SentItems = GetSentItems();
+                if (SentItems != null && SentItems.Count > 0)
+                {
+                    String StrSentItems = "Moved " + SentItems.Count + " item" + ((SentItems.Count > 1) ? "s" : "") + " to sent items:\r\n";
+                    for (Int32 i = 0; i < SentItems.Count; i++)
+                    {
+                        if (SentItems[i] == null)
+                        {
+                            WriteLog(LOGTYPE.LT_ERROR, "Outbox item at index " + i + " is null.");
+                        }
+                        else
+                        {
+                            if (SentItems[i] is Outlook.MailItem)
+                            {
+                                Outlook.MailItem SentItem = (Outlook.MailItem)SentItems[i];
+                                SentItem.Move((Outlook.Folder)this.Application.ActiveExplorer().Session.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderSentMail));
+                                StrSentItems += SentItem.Subject + " - " + SentItem.SentOn.ToString() + "\r\n";
+                            }
+                            else if (SentItems[i] is Outlook.MeetingItem)
+                            {
+                                Outlook.MeetingItem SentItem = (Outlook.MeetingItem)SentItems[i];
+                                SentItem.Move((Outlook.Folder)this.Application.ActiveExplorer().Session.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderSentMail));
+                                StrSentItems += SentItem.Subject + " - " + SentItem.SentOn.ToString() + "\r\n";
+                            }
+                            else
+                                continue;
+                        }
+                    }
+                    WriteLog(LOGTYPE.LT_INFORMATION, StrSentItems);
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog(LOGTYPE.LT_ERROR, "Error processing outbox: " + ex.Message);
             }
         }
 
@@ -137,13 +219,19 @@ namespace Outbox_Monitor
             }
         }
 
-        private Int32 GetHash(List<Outlook.MailItem> MailItems)
+        private Int32 GetHash(List<object> MailItems)
         {
             Int32 hash = 0;
 
-            foreach(Outlook.MailItem MailItem in MailItems)
+            foreach(object MailItem in MailItems)
             {
-                string EntryID = MailItem.EntryID;
+                string EntryID;
+                if (MailItem is Outlook.MailItem)
+                    EntryID = ((Outlook.MailItem)MailItem).EntryID;
+                else if (MailItem is Outlook.MeetingItem)
+                    EntryID = ((Outlook.MeetingItem)MailItem).EntryID;
+                else
+                    continue;
                 for(Int32 i = 0; i < (EntryID.Length / 2) / 4; i++)
                 {
                     hash ^= Convert.ToInt32(EntryID.Substring((i * 2) * 4, 4), 16);
