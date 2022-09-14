@@ -5,6 +5,10 @@ VisualStudioVersion = 16.0.31424.327
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Outbox Monitor", "Outbox Monitor.csproj", "{777695AB-9F2A-4EC6-B12D-77FFA7C2CA10}"
 EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Outbox Monitor Setup x86", "..\Outbox Monitor Setup\Outbox Monitor Setup.vdproj", "{1CBFB2A6-240C-452D-9E67-8F94DDD8F3B0}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Outbox Monitor Setup x64", "..\Outbox Monitor Setup x64\Outbox Monitor Setup x64.vdproj", "{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +31,24 @@ Global
 		{777695AB-9F2A-4EC6-B12D-77FFA7C2CA10}.Release|x64.Build.0 = Release|x64
 		{777695AB-9F2A-4EC6-B12D-77FFA7C2CA10}.Release|x86.ActiveCfg = Release|x86
 		{777695AB-9F2A-4EC6-B12D-77FFA7C2CA10}.Release|x86.Build.0 = Release|x86
+		{1CBFB2A6-240C-452D-9E67-8F94DDD8F3B0}.Debug|Any CPU.ActiveCfg = Debug
+		{1CBFB2A6-240C-452D-9E67-8F94DDD8F3B0}.Debug|x64.ActiveCfg = Debug
+		{1CBFB2A6-240C-452D-9E67-8F94DDD8F3B0}.Debug|x86.ActiveCfg = Debug
+		{1CBFB2A6-240C-452D-9E67-8F94DDD8F3B0}.Release|Any CPU.ActiveCfg = Release
+		{1CBFB2A6-240C-452D-9E67-8F94DDD8F3B0}.Release|x64.ActiveCfg = Release
+		{1CBFB2A6-240C-452D-9E67-8F94DDD8F3B0}.Release|x86.ActiveCfg = Release
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Debug|Any CPU.ActiveCfg = Debug
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Debug|Any CPU.Build.0 = Debug
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Debug|x64.ActiveCfg = Debug
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Debug|x64.Build.0 = Debug
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Debug|x86.ActiveCfg = Debug
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Debug|x86.Build.0 = Debug
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Release|Any CPU.ActiveCfg = Release
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Release|Any CPU.Build.0 = Release
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Release|x64.ActiveCfg = Release
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Release|x64.Build.0 = Release
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Release|x86.ActiveCfg = Release
+		{D195B6C4-2FDE-4B6F-B5AF-05B7436AE5D7}.Release|x86.Build.0 = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
